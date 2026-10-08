@@ -78,45 +78,53 @@ jobs:
           CASK_INPUT: ${{ inputs.cask }}
         run: echo "cask=${CASK_INPUT:-$(echo "$APP" | tr '[:upper:]' '[:lower:]')}" >> "$GITHUB_OUTPUT"
 
-      - uses: softprops/action-gh-release@v3
-        if: ${{ !inputs.dry_run }}
-        with:
-          generate_release_notes: true
-          body: |
-            SHA-256 (`${{ steps.package.outputs.archive }}`): `${{ steps.sha.outputs.sha256 }}`
-          files: ${{ steps.package.outputs.archive }}
+      - name: Classify tag
+        id: pre
+        run: |
+          if [ "${{ inputs.dry_run }}" != "true" ] && .menubar-kit/scripts/is-prerelease.sh "$GITHUB_REF_NAME"; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
+      # Prereleases are published on GitHub but never reach the Homebrew tap.
       - name: Checkout homebrew-tap
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.pre.outputs.prerelease != 'true' }}
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository_owner }}/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
-      - name: Update cask
+      # Fail before anything is published if the tap update cannot succeed.
+      - name: Verify tap access and cask
+        if: ${{ !inputs.dry_run && steps.pre.outputs.prerelease != 'true' }}
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          CASK: ${{ steps.cask.outputs.cask }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "HOMEBREW_TAP_TOKEN is not set" >&2; exit 1; }
+          [ -f "homebrew-tap/Casks/$CASK.rb" ] || { echo "homebrew-tap/Casks/$CASK.rb not found" >&2; exit 1; }
+
+      - uses: softprops/action-gh-release@v3
         if: ${{ !inputs.dry_run }}
+        with:
+          generate_release_notes: true
+          prerelease: ${{ steps.pre.outputs.prerelease == 'true' }}
+          body: |
+            SHA-256 (`${{ steps.package.outputs.archive }}`): `${{ steps.sha.outputs.sha256 }}`
+          files: ${{ steps.package.outputs.archive }}
+
+      - name: Update cask
+        if: ${{ !inputs.dry_run && steps.pre.outputs.prerelease != 'true' }}
         env:
           VERSION: ${{ steps.package.outputs.version }}
           SHA256: ${{ steps.sha.outputs.sha256 }}
           CASK: ${{ steps.cask.outputs.cask }}
-        run: |
-          python3 << 'PY'
-          import os, re
-
-          version = os.environ['VERSION']
-          sha256  = os.environ['SHA256']
-
-          path = f"homebrew-tap/Casks/{os.environ['CASK']}.rb"
-          text = open(path).read()
-          text = re.sub(r'version "[^"]*"', f'version "{version}"', text)
-          text = re.sub(r'sha256 "[^"]*"', f'sha256 "{sha256}"', text)
-          open(path, 'w').write(text)
-          print(f"Updated {path} to v{version}")
-          PY
+        run: .menubar-kit/scripts/update-cask.py "homebrew-tap/Casks/$CASK.rb" "$VERSION" "$SHA256"
 
       - name: Commit and push cask update
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.pre.outputs.prerelease != 'true' }}
         working-directory: homebrew-tap
         env:
           CASK: ${{ steps.cask.outputs.cask }}
