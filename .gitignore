@@ -1,0 +1,4 @@
+.build/
+.DS_Store
+tests/fixture/Packaging/AppIcon.icns
+docs/superpowers/
