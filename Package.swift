@@ -7,6 +7,6 @@ let package = Package(
     products: [.library(name: "MenuBarKit", targets: ["MenuBarKit"])],
     targets: [
         .target(name: "MenuBarKit", path: "Sources/MenuBarKit"),
-        .testTarget(name: "MenuBarKitTests", dependencies: ["MenuBarKit"], path: "Tests/MenuBarKitTests"),
+        .testTarget(name: "MenuBarKitTests", dependencies: ["MenuBarKit"], path: "Tests/MenuBarKitTests")
     ]
 )
