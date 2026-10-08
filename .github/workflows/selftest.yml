@@ -10,6 +10,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+      - run: swift test
       - run: tests/smoke.sh
       - name: actionlint
         run: brew install actionlint && actionlint
