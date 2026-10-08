@@ -26,7 +26,14 @@ cp "$BINARY" "$APP/Contents/MacOS/$APP_NAME"
 sed -e "s/\$(VERSION)/$VERSION/g" -e "s/\$(BUILD_VERSION)/$BUILD_VERSION/g" "$REPO/Packaging/Info.plist" > "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 
+# Hardened runtime blocks Apple Events (and more) unless entitled, so it is opt-in:
+# add Packaging/<App>.entitlements to enable it together with those entitlements.
+ENTITLEMENTS="$REPO/Packaging/$APP_NAME.entitlements"
 echo "Signing (ad-hoc)..."
-codesign --force --options runtime -s - "$APP"
+if [ -f "$ENTITLEMENTS" ]; then
+    codesign --force --options runtime --entitlements "$ENTITLEMENTS" -s - "$APP"
+else
+    codesign --force --deep -s - "$APP"
+fi
 
 echo "Packaged: $APP"
