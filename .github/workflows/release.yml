@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: App name, as in CFBundleExecutable (e.g. SongPulse)
+        type: string
+        required: true
+      cask:
+        description: Cask name; defaults to the lowercased app name
+        type: string
+        default: ''
+      kit_ref:
+        description: menubar-kit ref that provides the scripts
+        type: string
+        default: v1
+      run_tests:
+        type: boolean
+        default: true
+      dry_run:
+        description: Package only; skip the GitHub release and the tap update
+        type: boolean
+        default: false
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PhilRoli/menubar-kit
+          ref: ${{ inputs.kit_ref }}
+          path: .menubar-kit
+
+      - name: Validate tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH[-suffix]" >&2
+            exit 1
+          fi
+
+      - name: Test
+        if: ${{ inputs.run_tests }}
+        run: swift test
+
+      - name: Package app
+        id: package
+        env:
+          APP: ${{ inputs.app }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$DRY_RUN" = "true" ]; then VERSION="0.0.0-dryrun"; fi
+          .menubar-kit/scripts/package-app.sh "$APP" "$VERSION"
+          cd .build/package
+          zip -r -y "$APP-$VERSION.app.zip" "$APP.app"
+          mv "$APP-$VERSION.app.zip" "$GITHUB_WORKSPACE/"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "archive=$APP-$VERSION.app.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Compute checksum
+        id: sha
+        run: echo "sha256=$(shasum -a 256 "${{ steps.package.outputs.archive }}" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve cask name
+        id: cask
+        env:
+          APP: ${{ inputs.app }}
+          CASK_INPUT: ${{ inputs.cask }}
+        run: echo "cask=${CASK_INPUT:-$(echo "$APP" | tr '[:upper:]' '[:lower:]')}" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v3
+        if: ${{ !inputs.dry_run }}
+        with:
+          generate_release_notes: true
+          body: |
+            SHA-256 (`${{ steps.package.outputs.archive }}`): `${{ steps.sha.outputs.sha256 }}`
+          files: ${{ steps.package.outputs.archive }}
+
+      - name: Checkout homebrew-tap
+        if: ${{ !inputs.dry_run }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update cask
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+          CASK: ${{ steps.cask.outputs.cask }}
+        run: |
+          python3 << 'PY'
+          import os, re
+
+          version = os.environ['VERSION']
+          sha256  = os.environ['SHA256']
+
+          path = f"homebrew-tap/Casks/{os.environ['CASK']}.rb"
+          text = open(path).read()
+          text = re.sub(r'version "[^"]*"', f'version "{version}"', text)
+          text = re.sub(r'sha256 "[^"]*"', f'sha256 "{sha256}"', text)
+          open(path, 'w').write(text)
+          print(f"Updated {path} to v{version}")
+          PY
+
+      - name: Commit and push cask update
+        if: ${{ !inputs.dry_run }}
+        working-directory: homebrew-tap
+        env:
+          CASK: ${{ steps.cask.outputs.cask }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "Casks/$CASK.rb"
+          git diff --staged --quiet || git commit -m "$CASK $GITHUB_REF_NAME"
+          for _ in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          echo "Failed to push cask update after 3 attempts" >&2
+          exit 1

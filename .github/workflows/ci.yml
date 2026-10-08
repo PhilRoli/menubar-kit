@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: App name, as in CFBundleExecutable (e.g. SongPulse)
+        type: string
+        required: true
+      kit_ref:
+        description: menubar-kit ref that provides the scripts
+        type: string
+        default: v1
+      package_smoke:
+        description: Run a packaging smoke test
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v6
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Sources/**', 'Tests/**') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test --parallel
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Lint
+        run: swiftlint --strict
+
+      # Checked out after linting so the kit's fixture sources are never linted.
+      - name: Checkout menubar-kit
+        if: ${{ inputs.package_smoke }}
+        uses: actions/checkout@v7
+        with:
+          repository: PhilRoli/menubar-kit
+          ref: ${{ inputs.kit_ref }}
+          path: .menubar-kit
+
+      - name: Package smoke test
+        if: ${{ inputs.package_smoke }}
+        run: .menubar-kit/scripts/package-app.sh "${{ inputs.app }}" 0.0.0-ci
