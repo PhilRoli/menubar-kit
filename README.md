@@ -4,7 +4,7 @@ Shared CI/release workflows, packaging scripts and config templates for my macOS
 
 ## Contents
 - `.github/workflows/ci.yml`, `release.yml`: reusable (`workflow_call`) workflows.
-- `scripts/package-app.sh <App> <version>`, `make-icon.sh <emoji>`, `rebuild.sh <App>`: run from an app repo root.
+- `scripts/package-app.sh <App> <version>`, `make-icon.sh <emoji>`, `readme-icon.sh`, `rebuild.sh <App>`: run from an app repo root.
 - `templates/`: files to copy into a new app (`swiftlint.yml`, `dependabot.yml`, `dependabot-automerge.yml`, `gitignore`, `Info.plist` with `__APP__`, `LICENSE`).
 
 ## Swift package: MenuBarKit
@@ -16,7 +16,7 @@ Provides `LoginItemController`, `MainMenu.make(appName:)`, `runMenuBarApp(_:)`, 
 
 ## Adding an app
 1. Copy the templates in; replace `__APP__` in `Info.plist`.
-2. `../menubar-kit/scripts/make-icon.sh 🚆`
+2. `../menubar-kit/scripts/make-icon.sh 🚆`, then `../menubar-kit/scripts/readme-icon.sh` for the rounded README tile `Packaging/icon.png` (shown inline in the README title: `# <img src="Packaging/icon.png" width="48" height="48" align="absmiddle"> MyApp`)
 3. Add `.github/workflows/ci.yml`:
    ```yaml
    name: CI
