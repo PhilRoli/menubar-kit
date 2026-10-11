@@ -13,6 +13,15 @@ public enum PreferencesLayout {
         return label
     }
 
+    /// Small grey "Version x.y.z" line for the bottom of a preferences window.
+    public static func versionLabel(bundle: Bundle = .main) -> NSTextField {
+        let label = NSTextField(labelWithString: AppVersion.label(bundle: bundle))
+        label.font = .systemFont(ofSize: 11)
+        label.textColor = .secondaryLabelColor
+        label.isSelectable = true
+        return label
+    }
+
     public static func separator(width: CGFloat) -> NSView {
         let box = NSBox()
         box.boxType = .separator
