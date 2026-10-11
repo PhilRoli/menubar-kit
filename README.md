@@ -4,7 +4,7 @@ Shared CI/release workflows, packaging scripts and config templates for my macOS
 
 ## Contents
 - `.github/workflows/ci.yml`, `release.yml`: reusable (`workflow_call`) workflows.
-- `scripts/package-app.sh <App> <version>`, `make-icon.sh <emoji>`, `readme-icon.sh`, `rebuild.sh <App>`: run from an app repo root.
+- `scripts/package-app.sh <App> <version>`, `make-icon.sh <emoji>`, `readme-icon.sh [-e <emoji>] [-o <png>]`, `rebuild.sh <App>`: run from an app repo root.
 - `templates/`: files to copy into a new app (`swiftlint.yml`, `dependabot.yml`, `dependabot-automerge.yml`, `gitignore`, `Info.plist` with `__APP__`, `LICENSE`).
 
 ## Swift package: MenuBarKit
@@ -48,6 +48,8 @@ Provides `LoginItemController`, `MainMenu.make(appName:)`, `runMenuBarApp(_:)`, 
        secrets: inherit
    ```
 4. Add `Casks/<app>.rb` to `homebrew-tap`.
+
+For CLI tools without an app bundle, `readme-icon.sh -e 🚉 -o assets/icon.png` renders the same tile straight from an emoji.
 
 ## Local development
 Clone this repo next to the app repos (`../menubar-kit`) or set `MENUBAR_KIT`. App `rebuild.sh` shims call `scripts/rebuild.sh`.
