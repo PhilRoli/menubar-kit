@@ -1,11 +1,26 @@
 #!/bin/bash
-# Renders Packaging/AppIcon.icns as a macOS-style rounded app tile (white gradient, thin border, soft shadow)
-# into Packaging/icon.png (256x256, transparent corners) for use in the README title. Run from the app repo root.
+# Renders an icon as a macOS-style rounded app tile (white gradient, thin border, soft shadow) into a
+# 256x256 PNG with transparent corners, for use in the README title. Run from the repo root.
+#   readme-icon.sh                       Packaging/AppIcon.icns -> Packaging/icon.png
+#   readme-icon.sh -e <emoji> [-o path]  an emoji (for CLI tools without an app bundle)
 set -euo pipefail
 
 REPO="$(pwd)"
 ICNS="$REPO/Packaging/AppIcon.icns"
-[ -f "$ICNS" ] || { echo "error: $ICNS not found (run make-icon.sh <emoji> first)" >&2; exit 1; }
+EMOJI=""
+OUT="$REPO/Packaging/icon.png"
+while getopts "e:o:" opt; do
+    case "$opt" in
+        e) EMOJI="$OPTARG" ;;
+        o) OUT="$OPTARG" ;;
+        *) echo "Usage: readme-icon.sh [-e <emoji>] [-o <output.png>]" >&2; exit 1 ;;
+    esac
+done
+if [ -z "$EMOJI" ] && [ ! -f "$ICNS" ]; then
+    echo "error: $ICNS not found (run make-icon.sh <emoji> first, or pass -e <emoji>)" >&2
+    exit 1
+fi
+mkdir -p "$(dirname "$OUT")"
 
 WORK="$(mktemp -d -t readme_icon)"
 trap 'rm -rf "$WORK"' EXIT
@@ -15,8 +30,23 @@ cat > "$RENDER_SCRIPT" <<'SWIFT'
 import AppKit
 
 let size: CGFloat = 256
-let source = NSImage(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))!
 let output = URL(fileURLWithPath: CommandLine.arguments[2])
+let emoji = CommandLine.arguments[3]
+
+func emojiImage(_ text: String) -> NSImage {
+    let side: CGFloat = 1024
+    let image = NSImage(size: NSSize(width: side, height: side))
+    image.lockFocus()
+    let string = NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: side * 0.72)])
+    let extent = string.size()
+    string.draw(at: NSPoint(x: (side - extent.width) / 2, y: (side - extent.height) / 2))
+    image.unlockFocus()
+    return image
+}
+
+let source = emoji.isEmpty
+    ? NSImage(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))!
+    : emojiImage(emoji)
 
 guard let rep = NSBitmapImageRep(
     bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size), bitsPerSample: 8, samplesPerPixel: 4,
@@ -54,5 +84,5 @@ NSGraphicsContext.restoreGraphicsState()
 try rep.representation(using: .png, properties: [:])!.write(to: output)
 SWIFT
 
-swift "$RENDER_SCRIPT" "$ICNS" "$REPO/Packaging/icon.png"
-echo "Wrote Packaging/icon.png"
+swift "$RENDER_SCRIPT" "$ICNS" "$OUT" "$EMOJI"
+echo "Wrote $OUT"
