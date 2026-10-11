@@ -12,7 +12,7 @@ Shared CI/release workflows, packaging scripts and config templates for my macOS
 dependencies: [.package(url: "https://github.com/PhilRoli/menubar-kit", from: "1.1.0")],
 // target dependencies: [.product(name: "MenuBarKit", package: "menubar-kit")]
 ```
-Provides `LoginItemController`, `MainMenu.make(appName:)`, `runMenuBarApp(_:)`, `SecurityCLIKeychain`, `JSONDefaultsStore`, `NotificationScheduler` and `BannerNotificationPresenter`.
+Provides `LoginItemController`, `MainMenu.make(appName:)`, `runMenuBarApp(_:)`, `SecurityCLIKeychain`, `JSONDefaultsStore`, `NotificationScheduler`, `BannerNotificationPresenter`, `NSMenuItem.item`/`.info`, `MenuOpenTicker`, `observeWake` and `PreferencesLayout`.
 
 ## Adding an app
 1. Copy the templates in; replace `__APP__` in `Info.plist`.
