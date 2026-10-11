@@ -13,4 +13,4 @@ jobs:
       - run: swift test
       - run: tests/smoke.sh
       - name: actionlint
-        run: brew install actionlint && actionlint
+        run: brew install actionlint && actionlint -ignore 'property "workflow_sha" is not defined'

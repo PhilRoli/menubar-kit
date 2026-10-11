@@ -12,9 +12,9 @@ on:
         type: string
         default: ''
       kit_ref:
-        description: menubar-kit ref that provides the scripts
+        description: Override the menubar-kit ref that provides the scripts (default - the commit this workflow was loaded from)
         type: string
-        default: v1
+        default: ''
       run_tests:
         type: boolean
         default: true
@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: PhilRoli/menubar-kit
-          ref: ${{ inputs.kit_ref }}
+          ref: ${{ inputs.kit_ref || job.workflow_sha }}
           path: .menubar-kit
 
       - name: Validate tag

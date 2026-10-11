@@ -4,7 +4,9 @@ EMOJI="${1:?Usage: make-icon.sh <emoji>}"
 
 REPO="$(pwd)"
 ICONSET="$REPO/Packaging/AppIcon.iconset"
-RENDER_SCRIPT="$(mktemp /tmp/render_icon.XXXXXX.swift)"
+WORK="$(mktemp -d -t render_icon)"
+trap 'rm -rf "$WORK"' EXIT
+RENDER_SCRIPT="$WORK/render_icon.swift"
 
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
@@ -48,7 +50,6 @@ for (size, name) in sizes {
 SWIFT
 
 swift "$RENDER_SCRIPT" "$ICONSET" "$EMOJI"
-rm -f "$RENDER_SCRIPT"
 
 iconutil -c icns "$ICONSET" -o "$REPO/Packaging/AppIcon.icns"
 rm -rf "$ICONSET"

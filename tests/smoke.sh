@@ -13,7 +13,10 @@ echo "$OUT" | grep -q "Package.swift" || fail "no clear error outside an app rep
 rm -f Packaging/AppIcon.icns Packaging/Fixture.entitlements
 if "$KIT/scripts/package-app.sh" Fixture 1.2.3-rc.1 >/dev/null 2>&1; then fail "packaging succeeded without icon"; fi
 
+# a leftover temp file from a crashed run must not block later runs
+touch /tmp/render_icon.XXXXXX.swift
 "$KIT/scripts/make-icon.sh" "🧪"
+rm -f /tmp/render_icon.XXXXXX.swift
 [ -f Packaging/AppIcon.icns ] || fail "icon not generated"
 
 "$KIT/scripts/package-app.sh" Fixture 1.2.3-rc.1
